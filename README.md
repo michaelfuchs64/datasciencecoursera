@@ -7,8 +7,8 @@ Working with data from "Human Activity Recognition Using Smartphones Dataset" pr
 
 - All source data files are placed into "UCI HAR Dataset" subdirectory of the working directory
 - run_analysis.R: the code performing data manipulations
+- run_analysis_codebook.txt: list of variables from output data file 
 - UCI HAR Dataset/run_analysis.txt: output data file 
-- UCI HAR Dataset/run_analysis_variables.txt: list of variables from output data file (for information about meaning of each variable see file "UCI HAR Dataset/features_info.txt"
 - README.me: this file
 
 
