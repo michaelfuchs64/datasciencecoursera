@@ -1,0 +1,100 @@
+---
+title: "MachineLearningAssignment"
+author: "Michael Fuchs"
+date: "August 16, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Build a model to determine excercise type using data from personal monitoring devices
+The source of data is from http://groupware.les.inf.puc-rio.br/har
+
+### Prepare training and validation data sets
+
+```{r, message=FALSE, warning=FALSE}
+library(caret)
+setwd("C:/Users/Michael/Downloads/DataFiles")
+training <- read.table("pml-training.csv", header=TRUE, sep=",", quote = "\"", stringsAsFactors = FALSE)
+
+```
+
+First look at the data shows lots of NA values and numeric values interpreted as strings
+So I will clean it up: convert measurments to numeric type and remove columns which contain mostly NA values
+
+```{r, message=FALSE, warning=FALSE}
+## Convert measurment values to numeric type
+training[,8:159] <- apply(training[,8:159], c(1,2), as.numeric)
+
+## Calculate rate of NAs in each column
+## and find cols with the low rate of NAs (we'll use it for testing, too)
+rateNA <- apply(training, 2, function(X){sum(is.na(X))/length(X)})
+namesCleanCols <- names(which(rateNA < 0.1))
+
+## Subset training - keep cols with the low rate of NAs
+trainingClean <- subset(training, select=namesCleanCols)
+```
+
+Reserve a part of training data to validate and compare models
+
+```{r, message=FALSE, warning=FALSE}
+## Break trainingClean data set into two, reserve 30% for validation
+partValidate <- createDataPartition(y=trainingClean$classe, p=0.3, list=FALSE)
+validateClean <- trainingClean[partValidate,]
+trainClean <- trainingClean[-partValidate,]
+```
+
+Applying Principle Component Analysis (pca) to possibly reduce the number of predictors: 
+```{r}
+preProcess(trainClean[,8:59], method="pca")
+```
+Result shows that 25 componenets out of 51 capture 95% of variance, 
+so it makes sense to use this pre-processing method in model training.
+
+### Train several models using different methods and then compare their accuracies:
+
+pls - partial least squares:
+```{r, message=FALSE, warning=FALSE}
+model_PCA_PLS <- train(classe~., method="pls", preProcess="pca", data=trainClean)  
+
+## Apply to validation:
+m <- confusionMatrix(validateClean$classe, predict(model_PCA_PLS, validateClean))
+m$overall; m$table
+```
+
+rf - Random Forest:
+```{r, message=FALSE, warning=FALSE}
+model_PCA_RF <- train(classe~., method="rf", preProcess="pca", data=trainClean)  
+
+## Apply to validation:
+m <- confusionMatrix(validateClean$classe, predict(model_PCA_RF, validateClean))
+m$overall; m$table
+```
+
+Apparently Random Forest (rf) method produces a good accuracy (98%), so there is no need to look further.
+Let's go ahead and apply corresponding model (model_PCA_RF) to the testing data set.
+
+### Prepare testing data set
+```{r, message=FALSE, warning=FALSE}
+setwd("C:/Users/Michael/Downloads/DataFiles")
+testing <- read.table("pml-testing.csv", header=TRUE, sep=",", quote = "\"", stringsAsFactors = FALSE)
+## "classe" column is missing in testing, so let's add it for consistancy with training data 
+testing$classe <- vector(mode="character", length=nrow(testing))
+
+## Convert measurment columns to numeric
+testing[,8:159] <- apply(testing[,8:159], c(1,2), as.numeric)
+
+## Subset training - keep same cols as in training (namesCleanCols)
+testClean <- subset(testing, select=namesCleanCols)
+```
+
+### Test using model from training
+```{r, message=FALSE, warning=FALSE}
+testRes <- predict(model_PCA_RF, testClean)
+testRes
+```
+
+With the accuracy exceeding 98% on validation dataset, I expect at most one among 20 test results to be incorrect
